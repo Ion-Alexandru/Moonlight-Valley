@@ -1,0 +1,4 @@
+*.m filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+*.dir filter=lfs diff=lfs merge=lfs -text
+moonlight_valley_shop/ filter=lfs diff=lfs merge=lfs -text
