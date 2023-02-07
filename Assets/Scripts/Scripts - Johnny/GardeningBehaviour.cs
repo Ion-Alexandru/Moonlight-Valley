@@ -5,14 +5,15 @@ using UnityEngine.UI;
 using UnityEngine.Tilemaps;
 using static System.Net.Mime.MediaTypeNames;
 
-public class gardeningBehaviour : MonoBehaviour
-{
-    public Tilemap tilemap;
+public class GardeningBehaviour : MonoBehaviour
+{   
+    public GameManager gameManager;
+    public static GardeningBehaviour instance;
     public List<TileData> tileDataList;
-    private Vector3Int selectedTilePosition;
-    private Vector2 lastDirection = Vector2.zero;
     public Canvas canvas;   
+    Vector3Int selectedTilePosition;
 
+    public List<Enemy> enemyList = new List<Enemy>();
     public Sprite mudSprite;
     public Sprite grassSprite;
     public Sprite seedSprite;
@@ -20,38 +21,34 @@ public class gardeningBehaviour : MonoBehaviour
 
     public Sprite[] harvestableSprites;
 
-    public float speed;
-    public GameObject outline;
-    int seedIndex = 1;
-    int weaponIndex = 0;
-    public int[] vegetables = {0, 0, 0, 0, 0};
+    public int[] vegetables = new int[] {0, 0, 0, 0, 0};
 
     public float timeToGrow;
     public float timeToEvil;
-
-    private string[] seeds = {"None", "Cucumber", "Tomato", "Carrot", "Pumpkin", "Cabbage"};
-    private string[] weapons = {"Hand", "Hoe", "Seeds Pack", "Scythe"};
-    public UnityEngine.UI.Text currentSeed;
-    public UnityEngine.UI.Text currentWeapon;
-    public Transform player;
     public GameObject tomatoPrefab;
     public GameObject cucumberPrefab;
     public GameObject carrotPrefab;
     public GameObject pumpkinPrefab;
     public GameObject cabbagePrefab;
     public GameObject readySignPrefab;
-    private bool enemySpawned = false;
-    List<Enemy> enemyList = new List<Enemy>();
+    public int enemySpeed = 5;
     List<ReadySign> readySignList = new List<ReadySign>();
+    public PlayerScript player;
+
+    
 
     private void Start() {
+        enemyList = new List<Enemy>();
+
         tileDataList = new List<TileData>();
 
-        currentSeed.text = "Current Seed: " + seeds[seedIndex];
-        currentWeapon.text = "Current Weapon: " + weapons[weaponIndex];
-
-        BoundsInt bounds = tilemap.cellBounds;
-        TileBase[] allTiles = tilemap.GetTilesBlock(bounds);
+        if (player.currentWeapon != null)
+        {
+            player.currentWeapon.text = "Current Weapon: " + player.weapons[player.weaponIndex];
+        }
+       
+        BoundsInt bounds = player.tilemap.cellBounds;
+        TileBase[] allTiles = player.tilemap.GetTilesBlock(bounds);
 
         for (int x = 0; x < bounds.size.x; x++)
         {
@@ -65,29 +62,10 @@ public class gardeningBehaviour : MonoBehaviour
                 }
             }
         }
-
-        Debug.Log(tileDataList.Count);
     }
 
     private void Update() {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
-
-        // Make enemies follow the player
-        for (int i = 0; i < enemyList.Count; i++)
-        {
-            Enemy enemy = enemyList[i];
-            enemy.targetPos = player.position;
-            enemy.sprite.transform.position = Vector3.MoveTowards(enemy.sprite.transform.position, enemy.targetPos, enemy.step);
-
-            if (enemy.health <= 0)
-            {
-                Destroy(enemy.sprite);
-                enemyList.RemoveAt(i);
-                i--;
-            }
-        }
-
+        
         if (readySignList.Count > 0)
         {
             for (int y = readySignList.Count - 1; y >= 0; y--)
@@ -106,74 +84,44 @@ public class gardeningBehaviour : MonoBehaviour
             }
         }
 
-        if(Input.GetKeyDown(KeyCode.UpArrow) && seedIndex < seeds.Length - 1){
-            seedIndex += 1;
+        if (player.weaponIndex == 0){
 
-            Debug.Log("Current seed: " + seeds[seedIndex]);
-            
-            currentSeed.text = "Current Seed: " + seeds[seedIndex];
+            player.outline.SetActive(false);
 
-        } else if (Input.GetKeyDown(KeyCode.DownArrow) && seedIndex > 1){
-            seedIndex -= 1;
+            player.currentSeed.text = "";
+        }else if (player.weaponIndex == 1){
+            player.outline.transform.position = player.tilemap.GetCellCenterWorld(selectedTilePosition);
 
-            Debug.Log("Current seed: " + seeds[seedIndex]);
-            currentSeed.text = "Current Seed: " + seeds[seedIndex];
-        }
-        
-        float Scroll = Input.GetAxis("Mouse ScrollWheel");
+            player.outline.SetActive(true);
 
-        if (Scroll > 0 && weaponIndex < weapons.Length - 1) // forward
-        {
-            weaponIndex += 1;
-
-            currentWeapon.text = "Current Weapon: " + weapons[weaponIndex];
-        } else if (Scroll < 0 && weaponIndex > 0) // backwards
-        {
-            weaponIndex -= 1;
-
-            currentWeapon.text = "Current Weapon: " + weapons[weaponIndex];
-        }
-
-        Vector2 direction = new Vector2(horizontal, vertical);
-        if (direction.sqrMagnitude > 0) {
-            lastDirection = direction;
-            selectTile();
-        }
-
-        transform.position = transform.position + new Vector3(horizontal, vertical, 0) * speed * Time.deltaTime;
-
-        if (weaponIndex == 0){
-            outline.SetActive(false);
-        }else if (weaponIndex == 1){
-            outline.transform.position = tilemap.GetCellCenterWorld(selectedTilePosition);
-
-            outline.SetActive(true);
-
+            player.currentSeed.text = "";
             makeTerrainMud();
-        }else if (weaponIndex == 2){
-            outline.transform.position = tilemap.GetCellCenterWorld(selectedTilePosition);
+        }else if (player.weaponIndex == 2){
+            player.outline.transform.position = player.tilemap.GetCellCenterWorld(selectedTilePosition);
 
-            outline.SetActive(true);
+            player.outline.SetActive(true);
 
-            plantSeed(selectedTilePosition, seedIndex);
-        } else if (weaponIndex == 3) {
-            outline.transform.position = tilemap.GetCellCenterWorld(selectedTilePosition);
+            player.currentSeed.text = "Current seed: " + player.seeds[player.seedIndex];
+            plantSeed(selectedTilePosition, player.seedIndex);
+        } else if (player.weaponIndex == 3) {
+            player.outline.transform.position = player.tilemap.GetCellCenterWorld(selectedTilePosition);
             
-            outline.SetActive(true);
+            player.outline.SetActive(true);
 
+            player.currentSeed.text = "";
             harvestPlant(selectedTilePosition);
         }
     }
 
-    private void selectTile() {
-        Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
-        selectedTilePosition = cellPosition + Vector3Int.RoundToInt(lastDirection);
+    public void selectTile() {
+        Vector3Int cellPosition = player.tilemap.WorldToCell(player.transform.position);
+        selectedTilePosition = cellPosition + Vector3Int.RoundToInt(player.lastDirection);
     }
 
-    private void makeTerrainMud() {
+    public void makeTerrainMud() {
         if (Input.GetKeyDown(KeyCode.Space)) {
             // Get the current tile at the selected tile position
-            TileBase currentTile = tilemap.GetTile(selectedTilePosition);
+            TileBase currentTile = player.tilemap.GetTile(selectedTilePosition);
 
             // Create a new tile that uses the new sprite
             Tile newTile = ScriptableObject.CreateInstance<Tile>();
@@ -186,31 +134,20 @@ public class gardeningBehaviour : MonoBehaviour
                 {
                     tileDataList[j].state = 1;
                     tileDataList[j].seed = 0;
-                    tilemap.SetTile(selectedTilePosition, newTile);
+                    player.tilemap.SetTile(selectedTilePosition, newTile);
                     break;
                 }
             }
 
-        } 
-        // else if (Input.GetKeyDown(KeyCode.Backspace)){
-        //     // Get the current tile at the selected tile position
-        //     TileBase currentTile = tilemap.GetTile(selectedTilePosition);
-
-        //     // Create a new tile that uses the new sprite
-        //     Tile newTile = ScriptableObject.CreateInstance<Tile>();
-        //     newTile.sprite = grassSprite;
-
-        //     // Change the sprite of the selected tile to the new sprite
-        //     tilemap.SetTile(selectedTilePosition, newTile);
-        // }
+        }
     }
 
-    private void plantSeed(Vector3Int tilePosition, int i) {
+    public void plantSeed(Vector3Int tilePosition, int i) {
         if (Input.GetKeyDown(KeyCode.Space)) {
             Vector3Int storedTilePosition = tilePosition;
 
             // Get the current tile at the selected tile position
-            TileBase currentTile = tilemap.GetTile(storedTilePosition);
+            TileBase currentTile = player.tilemap.GetTile(storedTilePosition);
 
             // Change the sprite of the selected tile to the new sprite
             for (int j = 0; j < tileDataList.Count; j++)
@@ -222,7 +159,7 @@ public class gardeningBehaviour : MonoBehaviour
                     newTile.sprite = seedSprite;
                     tileDataList[j].state = 2;
                     tileDataList[j].seed = i;
-                    tilemap.SetTile(storedTilePosition, newTile);
+                    player.tilemap.SetTile(storedTilePosition, newTile);
                     StartCoroutine(WaitAndChangeTileToMature(timeToGrow, storedTilePosition, i));
                     break;
                 }
@@ -235,13 +172,13 @@ public class gardeningBehaviour : MonoBehaviour
         yield return new WaitForSeconds(waitTime);
 
         // Get the current tile at the selected tile position
-        TileBase currentTile = tilemap.GetTile(tilePosition);
+        TileBase currentTile = player.tilemap.GetTile(tilePosition);
 
         // Create a new tile that uses the new sprite
         Tile newTile = ScriptableObject.CreateInstance<Tile>();
 
         newTile.sprite = matureSprite;
-        tilemap.SetTile(tilePosition, newTile);
+        player.tilemap.SetTile(tilePosition, newTile);
 
         // Make the plant harvestable
         growToHarvestable(tilePosition, i);
@@ -255,7 +192,7 @@ public class gardeningBehaviour : MonoBehaviour
         yield return new WaitForSeconds(waitTime);
 
         // Get the current tile at the selected tile position
-        TileBase currentTile = tilemap.GetTile(tilePosition);
+        TileBase currentTile = player.tilemap.GetTile(tilePosition);
 
         // Create a new tile that uses the new sprite
         Tile newTile = ScriptableObject.CreateInstance<Tile>();
@@ -272,7 +209,7 @@ public class gardeningBehaviour : MonoBehaviour
                 Debug.Log("Plant " + tilePosition + " is harvestable!");
                 tileData.seed = i;
                 tileData.state = 3;
-                tilemap.SetTile(tilePosition, newTile);
+                player.tilemap.SetTile(tilePosition, newTile);
                 break;
             }
         }
@@ -284,7 +221,7 @@ public class gardeningBehaviour : MonoBehaviour
         yield return new WaitForSeconds(waitTime);
 
         // Get the current tile at the selected tile position
-        TileBase currentTile = tilemap.GetTile(tilePosition);
+        TileBase currentTile = player.tilemap.GetTile(tilePosition);
 
         // Create a new tile that uses the new sprite
         Tile newTile = ScriptableObject.CreateInstance<Tile>();
@@ -300,18 +237,18 @@ public class gardeningBehaviour : MonoBehaviour
                 Debug.Log("Plant " + tilePosition + " is now EVIL!"); 
                 tileDataList[j].state = 0;
                 tileDataList[j].seed = 0;
-                tilemap.SetTile(tilePosition, newTile);
+                player.tilemap.SetTile(tilePosition, newTile);
                 break;
             }
         }
     }
 
-    private void harvestPlant(Vector3Int tilePosition){
+    public void harvestPlant(Vector3Int tilePosition){
 
-        if (Input.GetKeyDown(KeyCode.Space) && weaponIndex == 3)
+        if (Input.GetKeyDown(KeyCode.Space) && player.weaponIndex == 3)
         {
             // Get the current tile at the selected tile position
-            TileBase currentTile = tilemap.GetTile(tilePosition);
+            TileBase currentTile = player.tilemap.GetTile(tilePosition);
 
             // Create a new tile that uses the new sprite
             Tile newTile = ScriptableObject.CreateInstance<Tile>();
@@ -320,47 +257,27 @@ public class gardeningBehaviour : MonoBehaviour
 
             for (int j = 0; j < tileDataList.Count; j++)
             {
-                if (tileDataList[j].position == tilePosition && tileDataList[j].state == 3 && tileDataList[j].seed == 1 || tileDataList[j].seed == 2)
-                {   
+                if (tileDataList[j].position == tilePosition && tileDataList[j].state == 3)
+                {
                     vegetables[tileDataList[j].seed - 1] += Random.Range(1, 3);
-                    Debug.Log("You now have " + seeds[tileDataList[j].seed] + ": " + vegetables[tileDataList[j].seed - 1]);
+                    Debug.Log("You now have " + player.seeds[tileDataList[j].seed] + ": " + vegetables[tileDataList[j].seed - 1]);
+
+                    gameManager.ShowText("Collected: " + player.seeds[tileDataList[j].seed], 30, Color.white, transform.position, Vector3.zero, 0.5f);
 
                     tileDataList[j].state = 1;
                     tileDataList[j].seed = 0;
-                    tilemap.SetTile(tilePosition, newTile);
+                    player.tilemap.SetTile(tilePosition, newTile);
                     break;
-                }
+                } 
             }
         }
     }
-
-    public class TileData
-    {
-        public Vector3Int position;
-        public int state;
-        public int seed;
-
-        public TileData(Vector3Int position, int state, int seed)
-        {
-            this.position = position;
-            this.state = state;
-            this.seed = seed;
-        }
-    }
-
-    public class Enemy
-    {
-        public int vegetableType;
-        public GameObject sprite;
-        public Vector3 targetPos;
-        public float step;
-        public int health = 10;
-    }
     
-    void SpawnEnemy(int vegetableType, Vector3Int spawnPosition)
+    public void SpawnEnemy(int vegetableType, Vector3Int spawnPosition)
     {
         Vector3 tilePosition = spawnPosition;
         GameObject spritePrefab = null;
+        
         switch (vegetableType)
         {
             case 1:
@@ -379,26 +296,47 @@ public class gardeningBehaviour : MonoBehaviour
                 spritePrefab = cabbagePrefab;
                 break;
         }
+        
         GameObject spawnedSprite = Instantiate(spritePrefab, tilePosition, Quaternion.identity);
-
+    
         Enemy enemy = new Enemy();
         enemy.vegetableType = vegetableType;
         enemy.sprite = spawnedSprite;
-        enemy.targetPos = player.position;
-        enemy.step = speed * Time.deltaTime;
-
+        enemy.targetPos = player.transform.position;
+        enemy.step = enemySpeed * Time.deltaTime;
+        enemy.isAttacking = false;
+        enemy.attackTime = 1.5f;
+        enemy.attackDamage = 2;
+        StartCoroutine(FollowAndAttackPlayer(enemy));
+    
         enemyList.Add(enemy);
     }
-
-    public class ReadySign
+    
+    IEnumerator FollowAndAttackPlayer(Enemy enemy)
     {
-        public Vector3 position;
-        public GameObject sprite;
+        while (enemy.sprite != null)
+        {
+            Vector3 direction = player.transform.position - enemy.sprite.transform.position;
+            if (direction.magnitude > enemy.attackRange) // Enemy is not close enough to attack
+            {
+                enemy.sprite.transform.position += direction.normalized * enemy.step;
+                //enemy.sprite.transform.position = Vector3.MoveTowards(enemy.sprite.transform.position, player.transform.position, enemySpeed);
+            }
+            else //if (!enemy.isAttacking)
+            {
+                player.ReceiveDamage(enemy.attackDamage);
+                // enemy.isAttacking = true;
+                
+                yield return new WaitForSeconds(enemy.attackTime);
+                // enemy.isAttacking = false;
+            }
+            yield return new WaitForEndOfFrame(); 
+        }
     }
-
+    
     void SpawnReadySign(Vector3Int spawnPosition)
     {
-        Vector3 worldPos = tilemap.CellToWorld(spawnPosition) + new Vector3(1, 1, 0);
+        Vector3 worldPos = player.tilemap.CellToWorld(spawnPosition) + new Vector3(1, 1, 0);
         GameObject signSprite = Instantiate(readySignPrefab, worldPos, Quaternion.identity);
 
         ReadySign readySign = new ReadySign();
@@ -408,4 +346,3 @@ public class gardeningBehaviour : MonoBehaviour
         readySignList.Add(readySign);
     }
 }
-
